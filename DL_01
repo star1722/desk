@@ -1,0 +1,49 @@
+import pandas as pd
+from keras.models import Sequential
+from keras.layers import Dense
+from keras.callbacks import ModelCheckpoint
+
+# Load data
+train_data = pd.read_csv('train.csv')
+test_data = pd.read_csv('test.csv')
+
+# Combine train and test data
+combined = train_data.append(test_data)
+combined.reset_index(inplace=True)
+combined.drop(['index', 'Id'], inplace=True, axis=1)
+
+# Preprocess data
+num_cols = combined.select_dtypes(exclude=['object']).columns
+cat_cols = combined.select_dtypes(include=['object']).columns
+combined = pd.get_dummies(combined, columns=cat_cols)
+
+# Split combined DataFrame
+train = combined[:1460]
+test = combined[1460:]
+
+# Define the model
+model = Sequential([
+    Dense(128, kernel_initializer='normal', input_dim=train.shape[1], activation='relu'),
+    Dense(256, kernel_initializer='normal', activation='relu'),
+    Dense(256, kernel_initializer='normal', activation='relu'),
+    Dense(256, kernel_initializer='normal', activation='relu'),
+    Dense(1, kernel_initializer='normal', activation='linear')
+])
+model.compile(loss='mean_absolute_error', optimizer='adam', metrics=['mean_absolute_error'])
+
+# Define checkpoint callback
+checkpoint = ModelCheckpoint("best_model.hdf5", monitor='val_loss', verbose=1, save_best_only=True, mode='auto')
+
+# Train the model
+model.fit(train, target, epochs=500, batch_size=32, validation_split=0.2, callbacks=[checkpoint])
+
+# Load best model
+model.load_weights("best_model.hdf5")
+model.compile(loss='mean_absolute_error', optimizer='adam', metrics=['mean_absolute_error'])
+
+# Test the model
+predictions = model.predict(test)
+
+# Save predictions
+submission = pd.DataFrame({'Id': test_data['Id'], 'SalePrice': predictions.flatten()})
+submission.to_csv('submission.csv', index=False)
